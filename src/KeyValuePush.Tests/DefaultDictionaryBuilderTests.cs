@@ -62,7 +62,6 @@ namespace AutoGuru.KeyValuePush.Tests
             var filePath = Path.Combine(path, "file1.txt");
             File.WriteAllText(filePath, "Content1");
 
-            // Bloquear el archivo para simular acceso denegado
             using (var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None))
             {
                 var exception = await Assert.ThrowsAsync<IOException>(() =>
@@ -74,7 +73,6 @@ namespace AutoGuru.KeyValuePush.Tests
             File.Delete(filePath);
             Directory.Delete(path);
         }
-
 
         [Fact]
         public async Task BuildAsync_ShouldRespectCancellationToken()
@@ -98,7 +96,6 @@ namespace AutoGuru.KeyValuePush.Tests
             var path = "TestFiles";
             Directory.CreateDirectory(path);
 
-            // Crear un archivo JSON con claves únicas
             var jsonContent = JsonSerializer.Serialize(new Dictionary<string, string>
             {
                 { "Key1", "Value1" },
@@ -115,14 +112,12 @@ namespace AutoGuru.KeyValuePush.Tests
             Directory.Delete(path, true);
         }
 
-
         [Fact]
         public async Task BuildAsync_ShouldIgnoreFilesWithNonJsonExtensions()
         {
             var path = "TestFiles";
             Directory.CreateDirectory(path);
 
-            // Crear un archivo con extensión no soportada
             File.WriteAllText(Path.Combine(path, "file1.unsupported"), "Unsupported Content");
 
             var result = await _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, false, CancellationToken.None);
@@ -130,7 +125,6 @@ namespace AutoGuru.KeyValuePush.Tests
             Assert.Empty(result);
             Directory.Delete(path, true);
         }
-
 
         [Fact]
         public async Task BuildAsync_ShouldCombineJsonAndTextFiles()
@@ -151,6 +145,22 @@ namespace AutoGuru.KeyValuePush.Tests
             Assert.Equal("Value1", result["Key1"]);
             Assert.Equal("Value2", result["Key2"]);
             Assert.Equal("TextContent", result["file2"]);
+            Directory.Delete(path, true);
+        }
+
+        [Fact]
+        public async Task BuildAsync_ShouldThrowException_WhenJsonFileIsInvalid()
+        {
+            var path = "TestFiles";
+            Directory.CreateDirectory(path);
+
+            File.WriteAllText(Path.Combine(path, "invalid.json"), "Invalid JSON Content");
+
+            var exception = await Assert.ThrowsAsync<Exception>(() =>
+                _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, true, CancellationToken.None));
+
+            Assert.Contains("Problem reading", exception.Message);
+
             Directory.Delete(path, true);
         }
     }
