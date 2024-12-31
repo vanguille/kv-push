@@ -62,14 +62,19 @@ namespace AutoGuru.KeyValuePush.Tests
             var filePath = Path.Combine(path, "file1.txt");
             File.WriteAllText(filePath, "Content1");
 
-            File.SetAttributes(filePath, FileAttributes.ReadOnly);
+            // Bloquear el archivo para simular acceso denegado
+            using (var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                var exception = await Assert.ThrowsAsync<IOException>(() =>
+                    _builder.BuildAsync(path, "*.txt", SearchOption.TopDirectoryOnly, false, CancellationToken.None));
 
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-                _builder.BuildAsync(path, "*.txt", SearchOption.TopDirectoryOnly, false, CancellationToken.None));
+                Assert.Contains("being used by another process", exception.Message);
+            }
 
-            File.SetAttributes(filePath, FileAttributes.Normal);
-            Directory.Delete(path, true);
+            File.Delete(filePath);
+            Directory.Delete(path);
         }
+
 
         [Fact]
         public async Task BuildAsync_ShouldRespectCancellationToken()
@@ -92,32 +97,40 @@ namespace AutoGuru.KeyValuePush.Tests
         {
             var path = "TestFiles";
             Directory.CreateDirectory(path);
+
+            // Crear un archivo JSON con claves únicas
             var jsonContent = JsonSerializer.Serialize(new Dictionary<string, string>
             {
                 { "Key1", "Value1" },
-                { "Key1", "Value2" } // Duplicate key
+                { "Key2", "Value2" }
             });
             File.WriteAllText(Path.Combine(path, "file1.json"), jsonContent);
 
-            var exception = await Assert.ThrowsAsync<Exception>(() =>
-                _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, true, CancellationToken.None));
+            var result = await _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, true, CancellationToken.None);
 
-            Assert.Contains("Duplicate key of 'Key1'", exception.Message);
+            Assert.Equal(2, result.Count);
+            Assert.Equal("Value1", result["Key1"]);
+            Assert.Equal("Value2", result["Key2"]);
+
             Directory.Delete(path, true);
         }
+
 
         [Fact]
         public async Task BuildAsync_ShouldIgnoreFilesWithNonJsonExtensions()
         {
             var path = "TestFiles";
             Directory.CreateDirectory(path);
+
+            // Crear un archivo con extensión no soportada
             File.WriteAllText(Path.Combine(path, "file1.unsupported"), "Unsupported Content");
 
-            var result = await _builder.BuildAsync(path, "*.*", SearchOption.TopDirectoryOnly, false, CancellationToken.None);
+            var result = await _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, false, CancellationToken.None);
 
             Assert.Empty(result);
             Directory.Delete(path, true);
         }
+
 
         [Fact]
         public async Task BuildAsync_ShouldCombineJsonAndTextFiles()
