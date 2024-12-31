@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Authors>Ben McCallum, AutoGuru</Authors>
+    <Product>kv-push</Product>
+    <Copyright>Copyright © AutoGuru</Copyright>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/autoguru-au/kv-push</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/autoguru-au/kv-push</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>
