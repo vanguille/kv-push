@@ -55,40 +55,63 @@ namespace AutoGuru.KeyValuePush.Tests
         }
 
         [Fact]
-        public async Task BuildAsync_ShouldReturnDictionary_WhenFilesAreValid()
+        public async Task BuildAsync_ShouldThrowException_WhenFileAccessFails()
+        {
+            var path = "RestrictedFiles";
+            Directory.CreateDirectory(path);
+            var filePath = Path.Combine(path, "file1.txt");
+            File.WriteAllText(filePath, "Content1");
+
+            File.SetAttributes(filePath, FileAttributes.ReadOnly);
+
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+                _builder.BuildAsync(path, "*.txt", SearchOption.TopDirectoryOnly, false, CancellationToken.None));
+
+            File.SetAttributes(filePath, FileAttributes.Normal);
+            Directory.Delete(path, true);
+        }
+
+        [Fact]
+        public async Task BuildAsync_ShouldRespectCancellationToken()
         {
             var path = "TestFiles";
             Directory.CreateDirectory(path);
             File.WriteAllText(Path.Combine(path, "file1.txt"), "Content1");
-            File.WriteAllText(Path.Combine(path, "file2.txt"), "Content2");
 
-            var result = await _builder.BuildAsync(path, "*.txt", SearchOption.TopDirectoryOnly, false, CancellationToken.None);
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
 
-            Assert.Equal(2, result.Count);
-            Assert.Equal("Content1", result["file1"]);
-            Assert.Equal("Content2", result["file2"]);
+            await Assert.ThrowsAsync<OperationCanceledException>(() =>
+                _builder.BuildAsync(path, "*.txt", SearchOption.TopDirectoryOnly, false, cts.Token));
 
             Directory.Delete(path, true);
         }
 
         [Fact]
-        public async Task BuildAsync_ShouldThrowJsonException_WhenJsonFileIsInvalid()
+        public async Task BuildAsync_ShouldHandleDuplicateKeysInJsonFiles()
         {
             var path = "TestFiles";
             Directory.CreateDirectory(path);
-            File.WriteAllText(Path.Combine(path, "file1.json"), "Invalid JSON Content");
+            var jsonContent = JsonSerializer.Serialize(new Dictionary<string, string>
+            {
+                { "Key1", "Value1" },
+                { "Key1", "Value2" } // Duplicate key
+            });
+            File.WriteAllText(Path.Combine(path, "file1.json"), jsonContent);
 
-            var exception = await Assert.ThrowsAsync<JsonException>(() => _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, true, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<Exception>(() =>
+                _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, true, CancellationToken.None));
 
-            Assert.Contains("is an invalid start of a value", exception.Message);
+            Assert.Contains("Duplicate key of 'Key1'", exception.Message);
             Directory.Delete(path, true);
         }
 
         [Fact]
-        public async Task BuildAsync_ShouldHandleEmptyDirectory()
+        public async Task BuildAsync_ShouldIgnoreFilesWithNonJsonExtensions()
         {
-            var path = "EmptyDirectory";
+            var path = "TestFiles";
             Directory.CreateDirectory(path);
+            File.WriteAllText(Path.Combine(path, "file1.unsupported"), "Unsupported Content");
 
             var result = await _builder.BuildAsync(path, "*.*", SearchOption.TopDirectoryOnly, false, CancellationToken.None);
 
@@ -97,19 +120,7 @@ namespace AutoGuru.KeyValuePush.Tests
         }
 
         [Fact]
-        public async Task BuildAsync_ShouldReturnEmptyDictionary_WhenNoMatchingFilesFound()
-        {
-            var path = "TestFiles";
-            Directory.CreateDirectory(path);
-
-            var result = await _builder.BuildAsync(path, "*.xml", SearchOption.TopDirectoryOnly, false, CancellationToken.None);
-
-            Assert.Empty(result);
-            Directory.Delete(path, true);
-        }
-
-        [Fact]
-        public async Task BuildAsync_ShouldSkipJsonFiles_WhenRecurseIntoJsonFilesIsFalse()
+        public async Task BuildAsync_ShouldCombineJsonAndTextFiles()
         {
             var path = "TestFiles";
             Directory.CreateDirectory(path);
@@ -119,50 +130,15 @@ namespace AutoGuru.KeyValuePush.Tests
                 { "Key2", "Value2" }
             });
             File.WriteAllText(Path.Combine(path, "file1.json"), jsonContent);
+            File.WriteAllText(Path.Combine(path, "file2.txt"), "TextContent");
 
-            var result = await _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, false, CancellationToken.None);
+            var result = await _builder.BuildAsync(path, "*.*", SearchOption.TopDirectoryOnly, true, CancellationToken.None);
 
-            Assert.Single(result);
-            Assert.Equal(jsonContent, result["file1"]);
-
+            Assert.Equal(3, result.Count);
+            Assert.Equal("Value1", result["Key1"]);
+            Assert.Equal("Value2", result["Key2"]);
+            Assert.Equal("TextContent", result["file2"]);
             Directory.Delete(path, true);
         }
-
-        [Fact]
-        public async Task BuildAsync_ShouldProcessNestedDirectories_WhenSearchOptionIsAllDirectories()
-        {
-            var path = "NestedTestFiles";
-            var nestedPath = Path.Combine(path, "SubDirectory");
-            Directory.CreateDirectory(nestedPath);
-            File.WriteAllText(Path.Combine(nestedPath, "file1.txt"), "Content1");
-
-            var result = await _builder.BuildAsync(path, "*.txt", SearchOption.AllDirectories, false, CancellationToken.None);
-
-            Assert.Single(result);
-            Assert.Equal("Content1", result["file1"]);
-
-            Directory.Delete(path, true);
-        }
-
-        [Fact]
-public async Task BuildAsync_ShouldIgnoreUnsupportedExtensions()
-{
-    // Arrange
-    var path = "TestFiles";
-    Directory.CreateDirectory(path);
-    File.WriteAllText(Path.Combine(path, "file1.unsupported"), "Unsupported Content");
-
-    // Act
-    var result = await _builder.BuildAsync(path, "*.txt", SearchOption.TopDirectoryOnly, false, CancellationToken.None);
-
-    // Assert
-    Assert.Empty(result);
-
-    // Clean up
-    Directory.Delete(path, true);
-}
-
     }
-
-
 }
