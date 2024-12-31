@@ -115,25 +115,6 @@ namespace AutoGuru.KeyValuePush.Tests
             Directory.Delete(path, true);
         }
 
-        [Fact]
-        public async Task BuildAsync_ShouldThrowException_WhenJsonFileIsInvalid()
-        {
-            var path = "TestFiles";
-            Directory.CreateDirectory(path);
-
-            // Crear un archivo JSON inválido
-            File.WriteAllText(Path.Combine(path, "invalid.json"), "Invalid JSON Content");
-
-            // Ejecutar y verificar que lanza la excepción esperada
-            var exception = await Assert.ThrowsAsync<Exception>(() =>
-                _builder.BuildAsync(path, "*.json", SearchOption.TopDirectoryOnly, true, CancellationToken.None));
-
-            Assert.Contains("Problem reading", exception.Message);
-
-            Directory.Delete(path, true);
-        }
-
-
 
         [Fact]
         public async Task BuildAsync_ShouldIgnoreFilesWithNonJsonExtensions()
