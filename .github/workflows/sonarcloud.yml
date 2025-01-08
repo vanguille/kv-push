@@ -34,8 +34,8 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ./AutoGuru.KeyValuePush.sln
 
-      - name: Build solution
-        run: dotnet build ./AutoGuru.KeyValuePush.sln --no-restore --configuration Debug
+      - name: Build tests
+        run: dotnet build ./src/KeyValuePush.Tests/KeyValuePush.Tests.csproj --configuration Debug --framework net8.0
 
       - name: Run tests with coverage
         run: |
