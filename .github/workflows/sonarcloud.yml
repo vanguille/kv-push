@@ -31,8 +31,8 @@ jobs:
       - name: Install Coverlet.Console
         run: dotnet tool install --global coverlet.console
 
-      - name: Restore dependencies
-        run: dotnet restore ./AutoGuru.KeyValuePush.sln --framework net7.0
+      - name: Restore dependencies for .NET 7.0
+        run: dotnet restore ./AutoGuru.KeyValuePush.sln /p:TargetFramework=net7.0
 
       - name: Build solution
         run: dotnet build ./AutoGuru.KeyValuePush.sln --no-restore --configuration Debug --framework net7.0
